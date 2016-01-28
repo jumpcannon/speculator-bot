@@ -19,7 +19,7 @@ It doesn't know how to pluralize nouns with special pluralization rules, so you 
 
 ## License
 
-Copyright © 2014 Morgan Mullaney
+Copyright © 2014 Morgan Astra
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
