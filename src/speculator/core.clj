@@ -1,8 +1,8 @@
 (ns speculator.core
   (require [clojure.string :as s]
-           [twitter.oauth :refer :all]
-           [twitter.request :refer :all]
-           [twitter.api.restful :refer :all])
+           [clojure.tools.cli :as cli]
+           [twitter.oauth :as tw-oauth]
+           [twitter.api.restful :as tw-api])
   (:gen-class))
 
 (def nouns (s/split (slurp "resources/nouns.txt") #"\n"))
@@ -19,7 +19,11 @@
                  "Perhaps "
                  "I wonder if "])
 
-(defn nth
+(defn exit [status msg]
+  (println msg)
+  (System/exit status))
+
+(defn nnth
   "Like clojure.core/nth, but handles negative indices correctly"
   ([coll index]
      (clojure.core/nth coll
@@ -36,8 +40,8 @@
 (defn pluralize
   "Pluralize a noun, assuming it follows regular pluralization rules"
   [noun]
-  (let [z (nth noun -1)
-        y (nth noun -2)]
+  (let [z (nnth noun -1)
+        y (nnth noun -2)]
     (if (or (contains? #{\s \x \z} z)
             (= [y z] [\c \h])
             (= [y z] [\s \h]))
@@ -56,13 +60,23 @@
   app-key, app-secret, user-key, and user-secret, respectively."
   [config-path]
   (let [config (s/split (slurp config-path) #"\n")]
-    (apply make-oauth-creds config)))
+    (apply tw-oauth/make-oauth-creds config)))
 
 (defn post-speculation!
   [creds]
-  (statuses-update :oauth-creds creds :params {:status (speculate)}))
+  (tw-api/statuses-update :oauth-creds creds :params {:status (speculate)}))
+
+(def cli-options
+  [["-d" "--dry-run" "Just print to console, don't tweet"]
+   ["-o" "--oauth FILE" "Location of oauth credential file"]
+   ["-h" "--help"]])
 
 (defn -main
-  [config-path]
-  (let [auth (read-auth-config config-path)]
-    (println (post-speculation! auth))))
+  [& args]
+  (let [{:keys [options arguments errors summary]}
+        (cli/parse-opts args cli-options)]
+    (cond
+      (:help options) (println summary)
+      (:dry-run options) (println (speculate))
+      (:oauth options) (post-speculation! (:oauth options))
+      :else (println summary))))
