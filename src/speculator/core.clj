@@ -1,5 +1,6 @@
 (ns speculator.core
   (require [clojure.string :as s]
+           [clojure.pprint :as pp]
            [clojure.tools.cli :as cli]
            [twitter.oauth :as tw-oauth]
            [twitter.api.restful :as tw-api])
@@ -55,20 +56,40 @@
         a (rand-nth adjectives)]
     (str beginning n1 " are just " a " " n2)))
 
-(defn read-auth-config
+(defn read-oauth-creds
   "The auth config file must be a newline-separated file containing your
   app-key, app-secret, user-key, and user-secret, respectively."
-  [config-path]
-  (let [config (s/split (slurp config-path) #"\n")]
+  [path]
+  (let [config (s/split (slurp path) #"\n")]
     (apply tw-oauth/make-oauth-creds config)))
 
-(defn post-speculation!
+(defn tweet!
   [creds]
-  (tw-api/statuses-update :oauth-creds creds :params {:status (speculate)}))
+  (let [text (speculate)]
+    (tw-api/statuses-update :oauth-creds creds :params {:status text})))
+
+(defn post!
+  [options]
+  (-> options
+      :oauth
+      read-oauth-creds
+      tweet!
+      :body
+      (select-keys [:id_str :text])))
+
+(defn delete!
+  [creds id_str]
+  nil
+  )
+
 
 (def cli-options
-  [["-d" "--dry-run" "Just print to console, don't tweet"]
-   ["-o" "--oauth FILE" "Location of oauth credential file"]
+  [["-o" "--oauth FILE" "Location of oauth credential file"]
+   ["-n" "--no-tweet N" "Don't tweet anything, just run the generator N times and print the results to the console (for development/testing)"
+    :default 1
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(> % 0) "Must be a number greater than 0"]]
+   ["-d" "--delete" "emulate a normal run all the way through posting a tweet, but delete it immediately after confirming it was posted successfully (for development/testing)"]
    ["-h" "--help"]])
 
 (defn -main
@@ -77,6 +98,8 @@
         (cli/parse-opts args cli-options)]
     (cond
       (:help options) (println summary)
-      (:dry-run options) (println (speculate))
-      (:oauth options) (post-speculation! (:oauth options))
+      (:no-tweet options) (dotimes [n (:no-tweet options)]
+                            (println (speculate)))
+      (every? options [:oauth :delete]) (-> options post! delete! pp/pprint)
+      (:oauth options) (-> options post! pp/pprint)
       :else (println summary))))
