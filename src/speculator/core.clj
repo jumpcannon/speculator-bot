@@ -90,7 +90,7 @@
     :parse-fn #(Integer/parseInt %)
     :validate [#(> % 0) "Must be a number greater than 0"]]
    ["-d" "--delete" "emulate a normal run all the way through posting a tweet, but delete it immediately after confirming it was posted successfully (for development/testing)"]
-   ["-h" "--help"]])
+   ["-h" "--help" "print this help message"]])
 
 (defn -main
   [& args]
@@ -98,8 +98,7 @@
         (cli/parse-opts args cli-options)]
     (cond
       (:help options) (println summary)
-      (:no-tweet options) (dotimes [n (:no-tweet options)]
-                            (println (speculate)))
       (every? options [:oauth :delete]) (-> options post! delete! pp/pprint)
       (:oauth options) (-> options post! pp/pprint)
-      :else (println summary))))
+      :else (dotimes [_ (:no-tweet options)]
+              (println (speculate))))))
